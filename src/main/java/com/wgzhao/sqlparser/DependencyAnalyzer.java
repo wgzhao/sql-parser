@@ -4,6 +4,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.Stack;
 
@@ -47,9 +48,13 @@ public class DependencyAnalyzer
                     }
             }
             allDependencies.removeAll(directDependencies);
-            ((Set)dependencies.get(sqlId)).removeAll(allDependencies);
+            dependencies.get(sqlId).removeAll(allDependencies);
         }
 
+        // Step 4: exists self-dependency, should remove it from dependencies
+        for (String sqlId : dependencies.keySet()) {
+            dependencies.get(sqlId).remove(sqlId);
+        }
         return dependencies;
     }
 

@@ -1,7 +1,5 @@
 package com.wgzhao.sqlparser;
 
-import net.sf.jsqlparser.expression.JsonAggregateUniqueKeysType;
-
 import java.io.IOException;
 import java.nio.file.FileVisitOption;
 import java.nio.file.Files;
@@ -55,15 +53,14 @@ public class Main
             }
         });
 
-        System.out.println("ID");
-        deps.forEach((k, v) -> {
-            System.out.println(k);
-            v.forEach(e -> {
-                System.out.print("\t" + e.getTarget() + " <-- ");
-                System.out.println(String.join(",", e.getSource()));
-            });
-
-        });
+//        System.out.println("ID");
+//        deps.forEach((k, v) -> {
+//            System.out.println(k);
+//            v.forEach(e -> {
+//                System.out.print("\t" + e.getTarget() + " <-- ");
+//                System.out.println(String.join(",", e.getSource()));
+//            });
+//        });
 
         System.out.println(DependencyAnalyzer.analyzeDependencies(deps));
     }

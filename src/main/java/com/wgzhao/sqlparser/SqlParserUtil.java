@@ -32,11 +32,7 @@ public class SqlParserUtil
                 System.out.println("No target table found, skipping");
                 continue;
             }
-            if (targetTables.contains(targetTable)) {
-                System.out.println("Duplicate target table found, skipping");
-                continue;
-            }
-            targetTables.add(targetTable);
+
             // Regex pattern to match the source tables in a SELECT statement, including subqueries and CTEs
             Pattern sourcePattern = Pattern.compile("(?:FROM|JOIN)\\s+([^\\s,();]+)", Pattern.CASE_INSENSITIVE);
 
@@ -77,7 +73,17 @@ public class SqlParserUtil
             // Combine source tables from main SQL and CTEs
             sourceTables.addAll(cteTables);
             sourceTables.removeAll(cteAliasTables);
-            result.add(new SqlElement(targetTable, sourceTables));
+            if (targetTables.contains(targetTable)) {
+                System.out.println("Duplicate target table found, merge source tables");
+                int index = targetTables.indexOf(targetTable);
+                Set<String> sources = result.get(index).getSource();
+                sources.addAll(sourceTables);
+                result.get(index).setSource(sources);
+            } else {
+                targetTables.add(targetTable);
+                result.add(new SqlElement(targetTable, sourceTables));
+            }
+
         }
         return result;
     }
