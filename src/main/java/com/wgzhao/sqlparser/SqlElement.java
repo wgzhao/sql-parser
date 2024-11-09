@@ -1,39 +1,33 @@
 package com.wgzhao.sqlparser;
 
-import java.util.ArrayList;
-import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 public class SqlElement
 {
-    public SqlType type;
     public String target;
-    public Set<String> columns;
+    // {"col1": ["tbl1.col1", "tbl2.col2"], "col2": ["tbl1.col2", "tbl2.col3"]}
+    public Map<String, Set<String>> columnsMap;
     public Set<String> source;
 
-    public SqlElement(SqlType type, String target, Set<String> columns, Set<String> source)
+    public SqlElement(String target, Map<String, Set<String>> columnsMap, Set<String> source)
     {
-        this.type = type;
         this.target = target;
-        this.columns = columns;
+        this.columnsMap = columnsMap;
         this.source = source;
     }
+
+    public SqlElement(String target ,Set<String> source) {
+        this.target = target;
+        this.columnsMap = null;
+        this.source = source;
+    }
+
     public SqlElement()
     {
-        this.type = null;
         this.target = null;
-        this.columns = null;
+        this.columnsMap = null;
         this.source = null;
-    }
-
-    public SqlType getType()
-    {
-        return type;
-    }
-
-    public void setType(SqlType type)
-    {
-        this.type = type;
     }
 
     public String getTarget()
@@ -46,14 +40,14 @@ public class SqlElement
         this.target = target;
     }
 
-    public Set<String> getColumns()
+    public Map<String, Set<String>> getColumnsMap()
     {
-        return columns;
+        return columnsMap;
     }
 
-    public void setColumns(Set<String> columns)
+    public void setColumnsMap(Map<String, Set<String>> columnsMap)
     {
-        this.columns = columns;
+        this.columnsMap = columnsMap;
     }
 
     public Set<String> getSource()
@@ -69,20 +63,18 @@ public class SqlElement
     public String toString()
     {
         return "SqlElement{" +
-                "type=" + type +
                 ", target='" + target + '\'' +
-                ", columns=" + columns +
+                ", columns=" + columnsMap +
                 ", source=" + source +
                 '}';
     }
 
     public void pretty() {
         System.out.printf("""
-                type: \t%s
                 target: \t%s
                 columns: \t%s
                 source: \t%s
                 ---------
-                """, type, target, columns, source);
+                """, target, columnsMap, source);
     }
 }

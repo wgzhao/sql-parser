@@ -1,15 +1,6 @@
 package com.wgzhao.sqlparser;
 
-import net.sf.jsqlparser.JSQLParserException;
-import net.sf.jsqlparser.parser.CCJSqlParserUtil;
-import net.sf.jsqlparser.statement.Statement;
-import net.sf.jsqlparser.statement.delete.Delete;
-import net.sf.jsqlparser.statement.insert.Insert;
-import net.sf.jsqlparser.statement.select.Select;
-import net.sf.jsqlparser.statement.select.SetOperationList;
-import net.sf.jsqlparser.statement.update.Update;
-import net.sf.jsqlparser.statement.update.UpdateSet;
-import net.sf.jsqlparser.util.TablesNamesFinder;
+import net.sf.jsqlparser.expression.JsonAggregateUniqueKeysType;
 
 import java.io.IOException;
 import java.nio.file.FileVisitOption;
@@ -17,125 +8,29 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
-import java.util.HashSet;
+import java.util.HashMap;
 import java.util.List;
-import java.util.Set;
-import java.util.concurrent.ExecutionException;
+import java.util.Map;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 public class Main
 {
-//    public static Callable<Map<String, Object>> extractSql(String sql)
-//    {
-//        return () -> {
-//            return getStatementType(sql);
-//        };
-//    }
-
-    public static List<SqlElement> getStatementType(String sql)
-            throws JSQLParserException
-    {
-        List<SqlElement> allResult = new ArrayList<>();
-        for (String ss : sql.split(";")) {
-            // Parse the SQL statement
-            Statement statement = CCJSqlParserUtil.parse(ss);
-            // Check the type of the statement
-            SqlElement result = new SqlElement();
-            Select select = null;
-            switch (statement) {
-                case Select select1 -> {
-                    result.setType(SqlType.Select);
-                    select = select1;
-                }
-                case Update update -> {
-                    result.setType(SqlType.Update);
-                    result.setTarget(update.getTable().getName());
-                    final Set<String> temp = new HashSet<>();
-                    for (UpdateSet us : update.getUpdateSets()) {
-                        us.getColumns().forEach(column -> temp.add(column.toString()));
-                        for (Object o : us.getValues()) {
-                            if (o instanceof Select s) {
-                                result.setSource(TablesNamesFinder.findTables(s.toString()));
-                            }
-                        }
-                    }
-                    result.setColumns(temp);
-                }
-                case Insert insert -> {
-                    result.setType(SqlType.Insert);
-                    result.setTarget(insert.getTable().getName());
-                    select = insert.getSelect();
-                }
-                case Delete delete -> {
-                    result.setType(SqlType.Delete);
-                    result.setTarget(delete.getTable().getName());
-                }
-                case null, default -> {
-                    result.setType(SqlType.Unknow);
-                }
-            }
-            if (select != null) {
-                Set<String> temp = new HashSet<>();
-                try {
-                    select.getPlainSelect().getSelectItems().forEach(selectItem -> {
-                        if (selectItem.getAlias() == null) {
-                            temp.add(selectItem.toString());
-                        }
-                        else {
-                            temp.add(selectItem.getAlias().getName());
-                        }
-                    });
-                } catch (ClassCastException _ignored){
-                    ((SetOperationList) select).getSelects().forEach(selectItem -> {
-                        selectItem.getPlainSelect().getSelectItems().forEach(selectItem1 -> {
-                            if (selectItem1.getAlias() == null) {
-                                temp.add(selectItem1.toString());
-                            }
-                            else {
-                                temp.add(selectItem1.getAlias().getName());
-                            }
-                        });
-                    });
-                }
-                result.setColumns(temp);
-                result.setSource(TablesNamesFinder.findTables(select.toString()));
-            }
-            allResult.add(result);
-        }
-
-        return allResult;
-    }
-
-    public static String preprocess(String sql)
-    {
-
-        return sql
-                // Remove single-line comments starting with --
-                .replaceAll("--.*?(\r?\n|$)", "")
-
-                // Remove single-line comments starting with #
-                .replaceAll("#.*?(\r?\n|$)", "")
-
-                // Remove multi-line comments enclosed in /* */
-                .replaceAll("/\\*.*?\\*/", "")
-
-                // Remove unnecessary white spaces (multiple spaces, tabs, newlines)
-                .replaceAll("\\s+", " ").trim();
-    }
 
     public static List<Path> getAllSqlFiles(String directoryPath)
     {
-        try (Stream<Path> paths = Files.walk(Paths.get(directoryPath), 1, FileVisitOption.FOLLOW_LINKS)) {
+        try (Stream<Path> paths = Files.walk(Paths.get(directoryPath), 2, FileVisitOption.FOLLOW_LINKS)) {
             return paths
                     .filter(Files::isRegularFile) // Filter to include only regular files
                     .filter(path -> path.toString().endsWith(".sql")) // Filter to include only .sql files
                     .collect(Collectors.toList()); // Collect the results into a list
-        } catch (IOException e) {
+        }
+        catch (IOException e) {
             e.printStackTrace();
             return new ArrayList<>();
         }
     }
+
 
     public static void main(String[] args)
     {
@@ -143,18 +38,33 @@ public class Main
         if (args.length == 1) {
             dir = args[0];
         }
+        Map<String, List<SqlElement>> deps = new HashMap<>();
         List<Path> sqlFileList = getAllSqlFiles(dir);
         sqlFileList.forEach(path -> {
             System.out.printf("File: %s%n", path);
+            String id = path.getFileName().toString().split("-")[0];
+            String sql = null;
             try {
-                String sql = preprocess(Files.readString(path));
-                List<SqlElement> result = getStatementType(sql);
-                result.forEach(SqlElement::pretty);
-                System.out.println();
+                sql = Files.readString(path);
+                List<SqlElement> result = SqlParserUtil.getTables(sql);
+                deps.put(id, result);
             }
-            catch (IOException | JSQLParserException e) {
+            catch (Exception  e) {
+                System.out.println(sql);
                 e.printStackTrace();
             }
         });
+
+        System.out.println("ID");
+        deps.forEach((k, v) -> {
+            System.out.println(k);
+            v.forEach(e -> {
+                System.out.print("\t" + e.getTarget() + " <-- ");
+                System.out.println(String.join(",", e.getSource()));
+            });
+
+        });
+
+        System.out.println(DependencyAnalyzer.analyzeDependencies(deps));
     }
 }
